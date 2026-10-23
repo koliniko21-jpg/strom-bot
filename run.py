@@ -1,3 +1,4 @@
 import os
 
-os.system("python bot.py")
+# Запускаем bot.py из корневой директории
+os.system("python ./bot.py")
