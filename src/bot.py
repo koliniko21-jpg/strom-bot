@@ -1,4 +1,21 @@
-import logging
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Простой веб-сервер для поддержки Render Web Service в активном состоянии
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_http_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+# Запускаем веб-сервер в отдельном фоновом потоке
+threading.Thread(target=run_http_server, daemon=True).start()import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
