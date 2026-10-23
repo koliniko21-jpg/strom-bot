@@ -15,7 +15,9 @@ def run_http_server():
     server.serve_forever()
 
 # Запускаем веб-сервер в отдельном фоновом потоке
-threading.Thread(target=run_http_server, daemon=True).start()import logging
+
+threading.Thread(target=run_http_server, daemon=True).start( )
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
