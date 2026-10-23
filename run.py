@@ -1,4 +1,4 @@
 import os
 
-# Запускаем bot.py из корневой директории
-os.system("python ./bot.py")
+# Автоматически находим bot.py и запускаем его
+os.system("python $(find . -name bot.py)")
