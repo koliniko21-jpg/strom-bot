@@ -15,7 +15,6 @@ from telegram.ext import (
 )
 from openai import OpenAI
 
-# Инициализация OpenAI API клиента
 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -49,8 +48,9 @@ TEXTS = {
         'service_gas': "🔥 Газ (Gas)",
         'service_both': "⚡+🔥 Электричество и Газ",
         'ask_plz': "Введите ваш почтовый индекс (PLZ), например: 88499",
-        'ask_consumption': "Отправьте **фото квитанции** (Jahresabrechnung) или напишите примерный годовой расход (в kWh / м³).\n\nИли напишите «Пропустить».",
-        'photo_rec': "📸 Фото получено!\n\nТеперь напишите ваше **имя** и **номер телефона** для связи.",
+        'ask_consumption': "Отправьте **фото квитанции** (Jahresabrechnung) по электричеству или газу, либо напишите расход (в kWh / м³).\n\nИли напишите «Пропустить».",
+        'not_energy_doc': "⚠️ Это не похоже на квитанцию по энергии (Strom/Gas). Пожалуйста, отправьте правильную Jahresabrechnung или напишите расход вручную.",
+        'photo_rec': "📸 Фото квитанции успешно распознано!\n\nТеперь напишите ваше **имя** и **номер телефона** для связи.",
         'ask_contact': "Напишите ваше **имя** и **номер телефона** для связи.",
         'thanks': "Спасибо! Ваша заявка успешно принята. Николай свяжется с вами в ближайшее время.",
         'admin_title': "🚨 **Новая заявка на консультацию!**\n\n",
@@ -62,8 +62,9 @@ TEXTS = {
         'service_gas': "🔥 Gas",
         'service_both': "⚡+🔥 Strom & Gas",
         'ask_plz': "Bitte geben Sie Ihre Postleitzahl (PLZ) ein, z.B.: 88499",
-        'ask_consumption': "Senden Sie ein **Foto der Jahresabrechnung** oder den Verbrauch (in kWh / m³).\n\nOder schreiben Sie «Weiter».",
-        'photo_rec': "📸 Foto empfangen!\n\nBitte schreiben Sie jetzt Ihren **Namen** und Ihre **Telefonnummer**.",
+        'ask_consumption': "Senden Sie ein **Foto der Jahresabrechnung** (Strom/Gas) oder den Verbrauch (in kWh / m³).\n\nOder schreiben Sie «Weiter».",
+        'not_energy_doc': "⚠️ Das sieht nicht nach einer Strom- oder Gasrechnung aus. Bitte senden Sie die richtige Abrechnung oder den Verbrauch.",
+        'photo_rec': "📸 Abrechnung erfolgreich erkannt!\n\nBitte schreiben Sie jetzt Ihren **Namen** und Ihre **Telefonnummer**.",
         'ask_contact': "Bitte schreiben Sie Ihren **Namen** und Ihre **Telefonnummer**.",
         'thanks': "Vielen Dank! Ihre Anfrage wurde erfolgreich empfangen. Nikolaj wird sich in Kürze melden.",
         'admin_title': "🚨 **Neue Beratungsanfrage!**\n\n",
@@ -127,8 +128,38 @@ async def set_consumption(update: Update, context: ContextTypes.DEFAULT_TYPE):
     t = TEXTS[lang]
     
     if update.message.photo:
+        # Скачиваем фото и проверяем через GPT-4o-mini Vision
+        photo_file = await update.message.photo[-1].get_file()
+        photo_bytes = await photo_file.download_as_bytearray()
+        
+        import base64
+        base64_image = base64.b64encode(photo_bytes).decode('utf-8')
+        
+        try:
+            ai_check = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Определи, является ли этот документ квитанцией, счетом или годовым расчетом за электричество или газ в Германии (Strom / Gas / Jahresabrechnung). Ответь строго одним словом: YES или NO."},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        ]
+                    }
+                ],
+                max_tokens=10
+            )
+            answer = ai_check.choices[0].message.content.strip().upper()
+        except Exception as e:
+            logging.error(f"Vision error: {e}")
+            answer = "YES" # Если сбой сети, пропускаем дальше
+
+        if "NO" in answer:
+            await update.message.reply_text(t['not_energy_doc'])
+            return CONSUMPTION # Остаемся на этом же шаге и ждем правильный документ
+
         context.user_data['photo_id'] = update.message.photo[-1].file_id
-        context.user_data['consumption'] = "📸 Фото квитанции прикреплено"
+        context.user_data['consumption'] = "📸 Проверенная квитанция Strom/Gas"
         await update.message.reply_text(t['photo_rec'], parse_mode='Markdown')
     else:
         context.user_data['consumption'] = update.message.text
@@ -169,7 +200,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Диалог отменён / Dialog abgebrochen.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-# Обработчик свободных вопросов с использованием ChatGPT
 async def handle_ai_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     
@@ -215,11 +245,9 @@ def main():
     )
     
     app.add_handler(conv_handler)
-    
-    # Обработчик для обычных сообщений вне анкеты (вопросы к ИИ)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ai_question))
     
-    print("Умный бот запущен!")
+    print("Умный бот с проверкой документов запущен!")
     app.run_polling()
 
 if __name__ == '__main__':
