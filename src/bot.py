@@ -13,6 +13,10 @@ from telegram.ext import (
     ConversationHandler,
     filters
 )
+from openai import OpenAI
+
+# Инициализация OpenAI API клиента
+openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -39,20 +43,20 @@ LANG, SERVICE, PLZ, CONSUMPTION, CONTACT = range(5)
 
 TEXTS = {
     'RU': {
-        'welcome': "Здравствуйте! Я помогу вам подобрать выгодный тариф на электричество или газ в Германии.",
+        'welcome': "Здравствуйте! Я помогу вам подобрать выгодный тариф на электричество или газ в Германии, а также отвечу на любые вопросы.",
         'choose_service': "Какая услуга вас интересует?",
         'service_strom': "⚡ Электричество (Strom)",
         'service_gas': "🔥 Газ (Gas)",
         'service_both': "⚡+🔥 Электричество и Газ",
         'ask_plz': "Введите ваш почтовый индекс (PLZ), например: 88499",
         'ask_consumption': "Отправьте **фото квитанции** (Jahresabrechnung) или напишите примерный годовой расход (в kWh / м³).\n\nИли напишите «Пропустить».",
-        'photo_rec': "📸 Фото полученo!\n\nТеперь напишите ваше **имя** и **номер телефона** для связи.",
+        'photo_rec': "📸 Фото получено!\n\nТеперь напишите ваше **имя** и **номер телефона** для связи.",
         'ask_contact': "Напишите ваше **имя** и **номер телефона** для связи.",
         'thanks': "Спасибо! Ваша заявка успешно принята. Николай свяжется с вами в ближайшее время.",
         'admin_title': "🚨 **Новая заявка на консультацию!**\n\n",
     },
     'DE': {
-        'welcome': "Hallo! Ich helfe Ihnen, einen günstigen Strom- oder Gastarif in Deutschland zu finden.",
+        'welcome': "Hallo! Ich helfe Ihnen, einen günstigen Strom- oder Gastarif in Deutschland zu finden und beantworte gerne Ihre Fragen.",
         'choose_service': "Welcher Service interessiert Sie?",
         'service_strom': "⚡ Strom",
         'service_gas': "🔥 Gas",
@@ -165,6 +169,34 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Диалог отменён / Dialog abgebrochen.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
+# Обработчик свободных вопросов с использованием ChatGPT
+async def handle_ai_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
+    
+    system_prompt = (
+        "Вы — вежливый и профессиональный цифровой помощник Николая, независимого энергоконсультанта "
+        "(Energieberater) в Германии. Ваша задача — помогать клиентам разбираться в вопросах смены поставщиков "
+        "электричества и газа (Strom und Gas), тарифах, экономии, бонусах и договорах в Германии. "
+        "Отвечайте коротко, понятно, дружелюбно и профессионально. "
+        "Если клиент спрашивает о конкретном расчете или хочет сменить тариф, вежливо предложите ему "
+        "нажать на команду /start, чтобы подать заявку."
+    )
+    
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text}
+            ],
+            max_tokens=400
+        )
+        answer = response.choices[0].message.content
+        await update.message.reply_text(answer)
+    except Exception as e:
+        logging.error(f"OpenAI error: {e}")
+        await update.message.reply_text("Извините, произошла ошибка при обработке запроса. Вы можете начать подачу заявки командой /start.")
+
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
     
@@ -183,7 +215,11 @@ def main():
     )
     
     app.add_handler(conv_handler)
-    print("Бот обновлен!")
+    
+    # Обработчик для обычных сообщений вне анкеты (вопросы к ИИ)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ai_question))
+    
+    print("Умный бот запущен!")
     app.run_polling()
 
 if __name__ == '__main__':
