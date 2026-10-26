@@ -245,7 +245,7 @@ def main():
     )
     
     app.add_handler(conv_handler)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ai_question))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex('^/start$'), handle_ai_question))
     
     print("Умный бот с проверкой документов запущен!")
     app.run_polling()
