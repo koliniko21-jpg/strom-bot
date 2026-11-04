@@ -1,7 +1,8 @@
 import logging
 import os
 import re
-from aiohttp import web
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -123,20 +124,24 @@ def build_menu(lang):
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# Заглушка для удовлетворения проверки портов Render
-async def handle_ping(request):
-    return web.Response(text="Bot is running!")
+# --- Веб-сервер на встроенной библиотеке Python ---
+class PingHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"Bot is alive!")
 
-async def start_dummy_server():
-    app = web.Application()
-    app.router.add_get('/', handle_ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
+    def log_message(self, format, *args):
+        return  # Отключаем спам в логи
+
+def start_health_check_server():
     port = int(os.environ.get("PORT", 10000))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    logger.info(f"Dummy Web Server running on port {port}")
+    server = HTTPServer(('0.0.0.0', port), PingHandler)
+    logger.info(f"Health check server listening on port {port}")
+    server.serve_forever()
 
+# --- Обработчики Telegram ---
 async def start(update: Update, context):
     context.user_data.clear()
     keyboard = [
@@ -311,11 +316,11 @@ async def show_contact_menu(update: Update, context):
     await update.message.reply_text(get_text(lang, 'contact_menu_text'), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return MAIN_MENU
 
-async def post_init(app: Application):
-    await start_dummy_server()
-
 def main():
-    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    # Запуск фонового веб-сервера для Render
+    threading.Thread(target=start_health_check_server, daemon=True).start()
+
+    application = Application.builder().token(BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
         entry_points=[
