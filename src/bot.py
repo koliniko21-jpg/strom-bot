@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 # --- КОНФИГУРАЦИЯ ---
-BOT_TOKEN = "8870946479:AAHC0bNlDXV2gXhKp_8Q5H3lhGYrnVPGJHg"
+BOT_TOKEN = "8870946479:AAHC0bNlDXV2gXhKp_8Q5H3IhGyrnVPGJHg"
 CHAT_ID_CONSULTANT = 773441776
 TELEGRAM_USERNAME = "@nikolajnujkinfit"
 
@@ -352,3 +352,11 @@ def main():
 
 if __name__ == '__main__':
     main()
+```
+eof
+
+### Что нужно сделать:
+1. Скопируйте этот обновленный код.
+2. Вставьте его в файл `src/src/bot.py` на GitHub и нажмите **Commit changes**.
+3. Перейдите на Render и сделайте **Manual Deploy ➔ Clear build cache & deploy**.
+4. После этого отправьте боту **/start** и нажмите кнопку «Начать проверку 🚀» — всё мгновенно заработает!
