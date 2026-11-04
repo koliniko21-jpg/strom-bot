@@ -1,5 +1,7 @@
 import logging
+import os
 import re
+from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -121,9 +123,22 @@ def build_menu(lang):
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# Прямая обработка команды /start
+# Заглушка для удовлетворения проверки портов Render
+async def handle_ping(request):
+    return web.Response(text="Bot is running!")
+
+async def start_dummy_server():
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logger.info(f"Dummy Web Server running on port {port}")
+
 async def start(update: Update, context):
-    context.user_data.clear() # Сброс старых состояний
+    context.user_data.clear()
     keyboard = [
         [
             InlineKeyboardButton("🇷🇺 Русский", callback_data='lang_RU'),
@@ -296,11 +311,11 @@ async def show_contact_menu(update: Update, context):
     await update.message.reply_text(get_text(lang, 'contact_menu_text'), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return MAIN_MENU
 
-async def cancel(update: Update, context):
-    return MAIN_MENU
+async def post_init(app: Application):
+    await start_dummy_server()
 
 def main():
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     conv_handler = ConversationHandler(
         entry_points=[
