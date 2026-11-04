@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 # --- КОНФИГУРАЦИЯ ---
-BOT_TOKEN = "8870946479:AAGDCl9z0HF4XGPNQTIrs2XXcJ08qiOzkjs"
+BOT_TOKEN = "1327283301:AAHKJGjr-QWWvyBMjXCeapICFTf-Clu52gI"
 CHAT_ID_CONSULTANT = 773441776  # Ваш Telegram Chat ID
 TELEGRAM_USERNAME = "@nikolajnujkinfit"
 
@@ -124,7 +124,6 @@ def build_menu(lang):
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# --- Веб-сервер на встроенной библиотеке Python ---
 class PingHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -133,7 +132,7 @@ class PingHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is alive!")
 
     def log_message(self, format, *args):
-        return  # Отключаем спам в логи
+        return
 
 def start_health_check_server():
     port = int(os.environ.get("PORT", 10000))
@@ -141,7 +140,6 @@ def start_health_check_server():
     logger.info(f"Health check server listening on port {port}")
     server.serve_forever()
 
-# --- Обработчики Telegram ---
 async def start(update: Update, context):
     context.user_data.clear()
     keyboard = [
@@ -174,7 +172,6 @@ async def handle_menu_choice(update: Update, context):
     lang = context.user_data.get('lang', 'RU')
     text = update.message.text
     
-    # Прямая маршрутизация по кнопкам
     if "Проверить" in text or "prüfen" in text:
         return await start_contract_check(update, context)
     elif "Рассчитать" in text or "berechnen" in text:
@@ -206,7 +203,7 @@ async def ask_name(update: Update, context):
     query = update.callback_query
     await query.answer()
     lang = context.user_data.get('lang', 'RU')
-    await query.edit_message_text(get_text(lang, 'questions')['1_NAME'], parse_mode='Markdown')
+    await query.message.reply_text(get_text(lang, 'questions')['1_NAME'], parse_mode='Markdown')
     return NAME
 
 async def collect_name(update: Update, context):
@@ -257,7 +254,7 @@ async def skip_photo(update: Update, context):
     await query.answer()
     lang = context.user_data.get('lang', 'RU')
     context.user_data['lead_data']['Контракт'] = "Пропущено"
-    await query.edit_message_text(get_text(lang, 'questions')['6_CONTACT'], parse_mode='Markdown')
+    await query.message.reply_text(get_text(lang, 'questions')['6_CONTACT'], parse_mode='Markdown')
     return CONTACT_INFO
 
 async def send_lead(update: Update, context):
@@ -316,7 +313,6 @@ async def show_contact_menu(update: Update, context):
     return MAIN_MENU
 
 def main():
-    # Запуск фонового веб-сервера для Render
     threading.Thread(target=start_health_check_server, daemon=True).start()
 
     application = Application.builder().token(BOT_TOKEN).build()
@@ -325,6 +321,7 @@ def main():
         entry_points=[
             CommandHandler("start", start),
             CallbackQueryHandler(set_language, pattern='^lang_'),
+            CallbackQueryHandler(ask_name, pattern='^start_lead$'),
             MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice),
         ],
         states={
@@ -351,8 +348,7 @@ def main():
 
     application.add_handler(conv_handler)
     logger.info("Бот запущен...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
-
