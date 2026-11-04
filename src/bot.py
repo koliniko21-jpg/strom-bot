@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 # --- КОНФИГУРАЦИЯ ---
-# Вставьте сюда скопированный токен из BotFather
+
 BOT_TOKEN = "8870946479:AAHD4bU6SgKb07frTH1FQo8yf9qaM-TyMnE"
 CHAT_ID_CONSULTANT = 773441776
 TELEGRAM_USERNAME = "@nikolajnujkinfit"
