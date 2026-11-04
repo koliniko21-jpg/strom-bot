@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 # --- КОНФИГУРАЦИЯ ---
-BOT_TOKEN = "8870946479:AAHD4bU6SgkbO7frTH1FQo8yf9qaM-TyMnE"
+BOT_TOKEN = "8870946479:AAHC0bNlDXV2gXhKp_8Q5H3lhGYrnVPGJHg"
 CHAT_ID_CONSULTANT = 773441776
 TELEGRAM_USERNAME = "@nikolajnujkinfit"
 
