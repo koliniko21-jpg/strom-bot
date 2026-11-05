@@ -58,3 +58,34 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text,
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
+async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    language = context.user_data.get("language", "de")
+
+    if query.data == "contract":
+        text = (
+            "🔍 Отправьте ваш договор на электроэнергию или газ."
+            if language == "ru"
+            else "🔍 Senden Sie Ihren Strom- oder Gasvertrag."
+        )
+
+    elif query.data == "savings":
+        text = (
+            "💰 Скоро здесь можно будет рассчитать экономию."
+            if language == "ru"
+            else "💰 Hier können Sie bald Ihre Ersparnis berechnen."
+        )
+
+    elif query.data == "contact":
+        text = (
+            "👨‍💼 Свяжитесь с консультантом: @nikolajnujkinfit"
+            if language == "ru"
+            else "👨‍💼 Kontaktieren Sie Ihren Berater: @nikolajnujkinfit"
+        )
+
+    else:
+        return
+
+    await query.message.reply_text(text)
