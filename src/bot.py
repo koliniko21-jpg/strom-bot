@@ -1,8 +1,8 @@
 import logging
 import os
 import re
-import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -13,33 +13,19 @@ from telegram.ext import (
     filters,
 )
 
-# --- КОНФИГУРАЦИЯ ---
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8870946479:AAGdkOfdswkkIdZQBrs4RAVgF8rmhvb99to")
 CHAT_ID_CONSULTANT = 773441776
 TELEGRAM_USERNAME = "@nikolajnujkinfit"
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-(
-    LANGUAGE_SELECT,
-    MAIN_MENU,
-    START_CHECK,
-    NAME,
-    CITY_PLZ,
-    PROVIDER,
-    CONSUMPTION,
-    CONTRACT_PHOTO,
-    CONTACT_INFO,
-    CALCULATE_INPUT,
-) = range(10)
+LANGUAGE_SELECT, MAIN_MENU, START_CHECK, NAME, CITY_PLZ, PROVIDER, CONSUMPTION, CONTRACT_PHOTO, CONTACT_INFO, CALCULATE_INPUT = range(10)
 
 TEXTS = {
     'start': {
-        'RU': "Привет! Меня зовут **Nikolaj Nujkin** — энергетический консультант с 8-летним опытом. Я помогу тебе проверить твой контракт на электроэнергию или газ и найти способы сэкономить.\n\nВыбери язык:",
-        'DE': "Hallo! Ich heiße **Nikolaj Nujkin** — Energieberater mit 8 Jahren Erfahrung. Ich helfe Ihnen, Ihren Strom- oder Gasvertrag zu überprüfen und Einsparmöglichkeiten zu finden.\n\nBitte wählen Sie die Sprache:",
+        'RU': "Привет! Меня зовут **Nikolaj Nujkin** — энергетический консультант. Я помогу тебе проверить твой контракт и сэкономить.\n\nВыбери язык:",
+        'DE': "Hallo! Ich heiße **Nikolaj Nujkin** — Energieberater. Bitte wählen Sie die Sprache:",
     },
     'main_menu': {
         'RU': "**Отлично!** Выбери, что ты хочешь сделать прямо сейчас:",
@@ -62,36 +48,36 @@ TEXTS = {
         },
     },
     'check_start': {
-        'RU': "**Экспертная оценка.** Бесплатная проверка твоего контракта позволит точно узнать, переплачиваешь ли ты за электроэнергию или газ. Я проведу точный расчёт и дам персональные рекомендации — **всё бесплатно** и без обязательств.",
-        'DE': "**Expertenschätzung.** Eine kostenlose Vertragsprüfung zeigt Ihnen genau, ob Sie zu viel für Strom oder Gas bezahlen. Ich werde eine genaue Berechnung geben.",
+        'RU': "**Экспертная оценка.** Бесплатная проверка твоего контракта позволит точно узнать, переплачиваешь ли ты за электроэнергию или газ.",
+        'DE': "**Expertenschätzung.** Kostenlose Vertragsprüfung.",
     },
     'check_start_button': {'RU': "Начать проверку 🚀", 'DE': "Prüfung starten 🚀"},
     'q_name': {'RU': "Как тебя зовут?", 'DE': "Wie heißen Sie?"},
     'q_city': {'RU': "В каком городе/PLZ ты живёшь?", 'DE': "In welcher Stadt/PLZ wohnen Sie?"},
     'q_provider': {'RU': "Кто твой текущий поставщик энергии?", 'DE': "Wer ist Ihr aktueller Energieanbieter?"},
-    'q_consumption': {'RU': "Сколько электроэнергии/газа ты потребляешь в год (в кВт⋅ч)? (Укажи число)", 'DE': "Wie hoch ist Ihr Strom-/Gasverbrauch pro Jahr (in kWh)?"},
+    'q_consumption': {'RU': "Сколько энергии ты потребляешь в год (в кВт⋅ч)? (Укажи число)", 'DE': "Wie hoch ist Ihr Verbrauch pro Jahr (in kWh)?"},
     'q_photo': {'RU': "Пришли фото контракта или PDF. Если не хочешь, просто нажми кнопку ниже.", 'DE': "Senden Sie ein Foto oder PDF Ihres Vertrags."},
     'q_contact': {'RU': "Укажи номер телефона или Telegram, чтобы я лично прислал результаты.", 'DE': "Geben Sie Ihre Telefonnummer oder Telegram an."},
     'skip_photo_button': {'RU': "Пропустить ➡️", 'DE': "Überspringen ➡️"},
     'lead_thanks': {
         'RU': "**🚀 Данные приняты!** Я лично проанализирую твой контракт и свяжусь с тобой в течение 24 часов.",
-        'DE': "**🚀 Daten erhalten!** Ich werde Ihren Vertrag persönlich analysieren und mich melden.",
+        'DE': "**🚀 Daten erhalten!** Ich werde Ihren Vertrag analysieren.",
     },
     'tips_content': {
-        'RU': "💡 **Советы по экономии:**\n\n1. Выключайте приборы полностью из розетки.\n2. Используйте LED-лампы.\n3. Настройте оптимальную температуру термостата.",
-        'DE': "💡 **Energiespartipps:**\n\n1. Geräte vollständig ausschalten.\n2. LED-Lampen verwenden.\n3. Thermostat optimal einstellen.",
+        'RU': "💡 **Советы по экономии:**\n1. Выключайте приборы полностью.\n2. Используйте LED-лампы.",
+        'DE': "💡 **Tipps:** Geräte ausschalten, LED nutzen.",
     },
     'calc_prompt': {
         'RU': "**💰 Введи текущие расходы в месяц (в евро, только число):**",
-        'DE': "**💰 Geben Sie Ihre monatlichen Kosten ein (in Euro):**",
+        'DE': "**💰 Monatliche Kosten in Euro eingeben:**",
     },
     'contact_menu_text': {
-        'RU': "**Связаться с Николаем:** Напишите мне прямо в Telegram для консультации.",
-        'DE': "**Kontakt:** Schreiben Sie mir direkt auf Telegram für eine Beratung.",
+        'RU': "**Связаться с Николаем:** Напишите мне прямо в Telegram.",
+        'DE': "**Kontakt:** Schreiben Sie mir auf Telegram.",
     },
     'reviews_content': {
-        'RU': "⭐ **Отзывы клиентов:**\n\n> *“Благодаря Николаю мы снизили расходы на газ почти вдвое!”*\n> *“Все объяснил понятно, рекомендую!”*",
-        'DE': "⭐ **Kundenbewertungen:**\n\n> *„Dank Nikolaj haben wir unsere Gasrechnung fast halbiert!“*\n> *„Alles klar erklärt, sehr zufrieden!“*",
+        'RU': "⭐ **Отзывы клиентов:** Экономия до 30%!",
+        'DE': "⭐ **Kundenbewertungen:** Bis zu 30% sparen!",
     },
 }
 
@@ -100,42 +86,33 @@ def get_text(lang, key):
 
 def build_menu(lang):
     buttons = TEXTS['menu_buttons'][lang]
-    keyboard = [
+    return ReplyKeyboardMarkup([
         [buttons['CHECK']],
         [buttons['CALC'], buttons['TIPS']],
-        [buttons['REVIEW'], buttons['CONTACT']],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        [buttons['REVIEW'], buttons['CONTACT']]
+    ], resize_keyboard=True)
 
-class PingHandler(BaseHTTPRequestHandler):
+class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        self.wfile.write(b"Bot is alive!")
-
+        self.wfile.write(b"OK")
     def log_message(self, format, *args):
-        return
+        pass
 
-def start_health_check_server():
+def run_server():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), PingHandler)
-    logger.info(f"Health check server listening on port {port}")
-    server.serve_forever()
+    HTTPServer(('0.0.0.0', port), HealthHandler).serve_forever()
 
 async def start(update: Update, context):
     context.user_data.clear()
-    keyboard = [
-        [
-            InlineKeyboardButton("🇷🇺 Русский", callback_data='lang_RU'),
-            InlineKeyboardButton("🇩🇪 Deutsch", callback_data='lang_DE'),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         TEXTS['start']['RU'] + "\n\n" + TEXTS['start']['DE'],
-        reply_markup=reply_markup,
-        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🇷🇺 Русский", callback_data='lang_RU'),
+             InlineKeyboardButton("🇩🇪 Deutsch", callback_data='lang_DE')]
+        ]),
+        parse_mode='Markdown'
     )
     return LANGUAGE_SELECT
 
@@ -144,17 +121,12 @@ async def set_language(update: Update, context):
     await query.answer()
     lang = query.data.split('_')[1]
     context.user_data['lang'] = lang
-    
-    menu_text = get_text(lang, 'main_menu')
-    reply_markup = build_menu(lang)
-    
-    await query.message.reply_text(menu_text, reply_markup=reply_markup, parse_mode='Markdown')
+    await query.message.reply_text(get_text(lang, 'main_menu'), reply_markup=build_menu(lang), parse_mode='Markdown')
     return MAIN_MENU
 
 async def handle_menu_choice(update: Update, context):
     lang = context.user_data.get('lang', 'RU')
     text = update.message.text
-    
     if "Проверить" in text or "prüfen" in text:
         return await start_contract_check(update, context)
     elif "Рассчитать" in text or "berechnen" in text:
@@ -166,30 +138,25 @@ async def handle_menu_choice(update: Update, context):
     elif "Связаться" in text or "Kontakt" in text:
         return await show_contact_menu(update, context)
     else:
-        await update.message.reply_text(
-            get_text(lang, 'main_menu'),
-            reply_markup=build_menu(lang),
-            parse_mode='Markdown',
-        )
+        await update.message.reply_text(get_text(lang, 'main_menu'), reply_markup=build_menu(lang), parse_mode='Markdown')
         return MAIN_MENU
 
 async def start_contract_check(update: Update, context):
     lang = context.user_data.get('lang', 'RU')
     context.user_data['lead_data'] = {}
-    check_text = get_text(lang, 'check_start')
-    keyboard = [[InlineKeyboardButton(get_text(lang, 'check_start_button'), callback_data='start_lead')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(check_text, reply_markup=reply_markup, parse_mode='Markdown')
+    await update.message.reply_text(
+        get_text(lang, 'check_start'),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(get_text(lang, 'check_start_button'), callback_data='start_lead')]]),
+        parse_mode='Markdown'
+    )
     return START_CHECK
 
 async def ask_name(update: Update, context):
     query = update.callback_query
     lang = context.user_data.get('lang', 'RU')
     if query:
-        try:
-            await query.answer()
-        except Exception:
-            pass
+        try: await query.answer()
+        except: pass
         await query.message.reply_text(get_text(lang, 'q_name'), parse_mode='Markdown')
     else:
         await update.message.reply_text(get_text(lang, 'q_name'), parse_mode='Markdown')
@@ -216,15 +183,15 @@ async def collect_provider(update: Update, context):
 async def collect_consumption(update: Update, context):
     lang = context.user_data.get('lang', 'RU')
     text = update.message.text.replace(',', '.')
-
     if not re.match(r'^\d+(\.\d+)?$', text):
-        await update.message.reply_text("❌ Пожалуйста, введи только число (в кВт⋅ч).", parse_mode='Markdown')
+        await update.message.reply_text("❌ Укажите число в кВт⋅ч.", parse_mode='Markdown')
         return CONSUMPTION
-
     context.user_data['lead_data']['Потребление'] = text
-    keyboard = [[InlineKeyboardButton(get_text(lang, 'skip_photo_button'), callback_data='skip_photo')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(get_text(lang, 'q_photo'), reply_markup=reply_markup, parse_mode='Markdown')
+    await update.message.reply_text(
+        get_text(lang, 'q_photo'),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(get_text(lang, 'skip_photo_button'), callback_data='skip_photo')]]),
+        parse_mode='Markdown'
+    )
     return CONTRACT_PHOTO
 
 async def collect_photo(update: Update, context):
@@ -234,17 +201,14 @@ async def collect_photo(update: Update, context):
         context.user_data['lead_file_id'] = update.message.photo[-1].file_id if update.message.photo else update.message.document.file_id
     else:
         context.user_data['lead_data']['Контракт'] = "Пропущено"
-
     await update.message.reply_text(get_text(lang, 'q_contact'), parse_mode='Markdown')
     return CONTACT_INFO
 
 async def skip_photo(update: Update, context):
     query = update.callback_query
     if query:
-        try:
-            await query.answer()
-        except Exception:
-            pass
+        try: await query.answer()
+        except: pass
     lang = context.user_data.get('lang', 'RU')
     context.user_data['lead_data']['Контракт'] = "Пропущено"
     await query.message.reply_text(get_text(lang, 'q_contact'), parse_mode='Markdown')
@@ -254,22 +218,17 @@ async def send_lead(update: Update, context):
     lang = context.user_data.get('lang', 'RU')
     context.user_data['lead_data']['Контакт'] = update.message.text
     user = update.effective_user
-
     lead_text = f"🔔 **НОВЫЙ ЛИД** 🔔\n\n**Клиент:** @{user.username or 'нет'} (ID: `{user.id}`)\n"
     for k, v in context.user_data['lead_data'].items():
         lead_text += f"**{k}:** {v}\n"
-
     try:
         await context.bot.send_message(chat_id=CHAT_ID_CONSULTANT, text=lead_text, parse_mode='Markdown')
         file_id = context.user_data.get('lead_file_id')
         if file_id:
-            try:
-                await context.bot.send_photo(chat_id=CHAT_ID_CONSULTANT, photo=file_id)
-            except Exception:
-                await context.bot.send_document(chat_id=CHAT_ID_CONSULTANT, document=file_id)
+            try: await context.bot.send_photo(chat_id=CHAT_ID_CONSULTANT, photo=file_id)
+            except: await context.bot.send_document(chat_id=CHAT_ID_CONSULTANT, document=file_id)
     except Exception as e:
         logger.error(f"Ошибка отправки лида: {e}")
-
     await update.message.reply_text(get_text(lang, 'lead_thanks'), reply_markup=build_menu(lang), parse_mode='Markdown')
     return ConversationHandler.END
 
@@ -282,14 +241,9 @@ async def calculate_economy(update: Update, context):
     lang = context.user_data.get('lang', 'RU')
     try:
         cost = float(update.message.text.replace(',', '.'))
-        res = (
-            f"💰 **Примерный расчёт:** С моей помощью клиенты обычно экономят **15-30%**.\n"
-            f"При твоих расходах в **{cost:.2f} €** в месяц, потенциальная экономия составит "
-            f"от **{(cost * 0.15):.2f} €** до **{(cost * 0.25):.2f} €** в месяц (до **{(cost * 0.25 * 12):.2f} €** в год)!"
-        )
+        res = f"💰 **Экономия:** примерно **{(cost * 0.2):.2f} €** в месяц (до **{(cost * 0.2 * 12):.2f} €** в год)!"
     except ValueError:
-        res = "❌ Пожалуйста, введи корректную сумму в евро (числом)."
-
+        res = "❌ Пожалуйста, введите корректное число в евро."
     await update.message.reply_text(res, reply_markup=build_menu(lang), parse_mode='Markdown')
     return ConversationHandler.END
 
@@ -310,14 +264,10 @@ async def show_contact_menu(update: Update, context):
     return ConversationHandler.END
 
 def main():
-    threading.Thread(target=start_health_check_server, daemon=True).start()
-
-    token = os.environ.get("BOT_TOKEN", BOT_TOKEN)
-    logger.info(f"Запуск бота...")
-
-    application = Application.builder().token(token).build()
-
-    conv_handler = ConversationHandler(
+    Thread(target=run_server, daemon=True).start()
+    app = Application.builder().token(BOT_TOKEN).build()
+    
+    conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
             CallbackQueryHandler(set_language, pattern='^lang_'),
@@ -342,16 +292,13 @@ def main():
             CONTACT_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_lead)],
             CALCULATE_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, calculate_economy)],
         },
-        fallbacks=[
-            CommandHandler("start", start),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice)
-        ],
+        fallbacks=[CommandHandler("start", start), MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice)],
         allow_reentry=True
     )
-
-    application.add_handler(conv_handler)
+    
+    app.add_handler(conv)
     logger.info("Бот запущен...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
