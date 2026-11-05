@@ -32,3 +32,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Пожалуйста, выберите язык.",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
+async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    language = "ru" if query.data == "lang_ru" else "de"
+    context.user_data["language"] = language
+
+    if language == "ru":
+        text = "⚡ Добро пожаловать!\n\nЧто вы хотите сделать?"
+        keyboard = [
+            [InlineKeyboardButton("🔍 Проверить договор", callback_data="contract")],
+            [InlineKeyboardButton("💰 Рассчитать экономию", callback_data="savings")],
+            [InlineKeyboardButton("👨‍💼 Связаться с консультантом", callback_data="contact")],
+        ]
+    else:
+        text = "⚡ Herzlich willkommen!\n\nWas möchten Sie tun?"
+        keyboard = [
+            [InlineKeyboardButton("🔍 Vertrag prüfen", callback_data="contract")],
+            [InlineKeyboardButton("💰 Ersparnis berechnen", callback_data="savings")],
+            [InlineKeyboardButton("👨‍💼 Berater kontaktieren", callback_data="contact")],
+        ]
+
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
