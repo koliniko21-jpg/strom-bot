@@ -13,7 +13,10 @@ from telegram.ext import (
     filters,
 )
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8870946479:AAE3vL91bRMZnlxlVZkiooius_kHpSv9MDM")
+BOT_TOKEN = os.environ.get(BOT_TOKEN = os.environ.get("BOT_TOKEN")
+
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN не установлен!"))
 CHAT_ID_CONSULTANT = 773441776
 TELEGRAM_USERNAME = "@nikolajnujkinfit"
 
