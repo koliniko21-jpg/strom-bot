@@ -70,7 +70,7 @@ TEXTS = {
     'q_city': {'RU': "В каком городе/PLZ ты живёшь?", 'DE': "In welcher Stadt/PLZ wohnen Sie?"},
     'q_provider': {'RU': "Кто твой текущий поставщик энергии?", 'DE': "Wer ist Ihr aktueller Energieanbieter?"},
     'q_consumption': {'RU': "Сколько электроэнергии/газа ты потребляешь в год (в кВт⋅ч)? (Укажи число)", 'DE': "Wie hoch ist Ihr Strom-/Gasverbrauch pro Jahr (in kWh)?"},
-    'q_photo': {'RU': "Пришли фото контракта или PDF. Если не хочешь, просто нажми кнопку ниже.", 'DE': "Senden Sie ein Foto oder PDF Ihres Vertrags или нажмите кнопку ниже."},
+    'q_photo': {'RU': "Пришли фото контракта или PDF. Если не хочешь, просто нажми кнопку ниже.", 'DE': "Senden Sie ein Foto oder PDF Ihres Vertrags oder klicken Sie unten."},
     'q_contact': {'RU': "Укажи номер телефона или Telegram, чтобы я лично прислал результаты.", 'DE': "Geben Sie Ihre Telefonnummer oder Telegram an."},
     'skip_photo_button': {'RU': "Пропустить ➡️", 'DE': "Überspringen ➡️"},
     'lead_thanks': {
@@ -184,11 +184,12 @@ async def start_contract_check(update: Update, context):
 
 async def ask_name(update: Update, context):
     query = update.callback_query
-    lang = context.user_data.get('lang', 'RU')
     if query:
         await query.answer()
+        lang = context.user_data.get('lang', 'RU')
         await query.message.reply_text(get_text(lang, 'q_name'), parse_mode='Markdown')
     else:
+        lang = context.user_data.get('lang', 'RU')
         await update.message.reply_text(get_text(lang, 'q_name'), parse_mode='Markdown')
     return NAME
 
@@ -215,7 +216,7 @@ async def collect_consumption(update: Update, context):
     text = update.message.text.replace(',', '.')
 
     if not re.match(r'^\d+(\.\d+)?$', text):
-        await update.message.reply_text("❌ Пожалуйста, введи только число (в кВт⋅ч).", parse_mode='Markdown')
+        await update.message.reply_text("❌ Укажите число в кВт⋅ч.", parse_mode='Markdown')
         return CONSUMPTION
 
     context.user_data['lead_data']['Потребление'] = text
@@ -264,7 +265,7 @@ async def send_lead(update: Update, context):
         logger.error(f"Ошибка отправки лида: {e}")
 
     await update.message.reply_text(get_text(lang, 'lead_thanks'), reply_markup=build_menu(lang), parse_mode='Markdown')
-    return MAIN_MENU
+    return ConversationHandler.END
 
 async def calculate_economy_prompt(update: Update, context):
     lang = context.user_data.get('lang', 'RU')
@@ -284,7 +285,23 @@ async def calculate_economy(update: Update, context):
         res = "❌ Пожалуйста, введи корректную сумму в евро (числом)."
 
     await update.message.reply_text(res, reply_markup=build_menu(lang), parse_mode='Markdown')
-    return MAIN_MENU
+    return ConversationHandler.END
+
+async def show_tips(update: Update, context):
+    lang = context.user_data.get('lang', 'RU')
+    await update.message.reply_text(get_text(lang, 'tips_content'), reply_markup=build_menu(lang), parse_mode='Markdown')
+    return ConversationHandler.END
+
+async def show_reviews(update: Update, context):
+    lang = context.user_data.get('lang', 'RU')
+    await update.message.reply_text(get_text(lang, 'reviews_content'), reply_markup=build_menu(lang), parse_mode='Markdown')
+    return ConversationHandler.END
+
+async def show_contact_menu(update: Update, context):
+    lang = context.user_data.get('lang', 'RU')
+    keyboard = [[InlineKeyboardButton("💬 Написать Николаю", url=f"https://t.me/{TELEGRAM_USERNAME.lstrip('@')}")]]
+    await update.message.reply_text(get_text(lang, 'contact_menu_text'), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+    return ConversationHandler.END
 
 def main():
     threading.Thread(target=start_health_check_server, daemon=True).start()
@@ -299,6 +316,7 @@ def main():
             CommandHandler("start", start),
             CallbackQueryHandler(set_language, pattern='^lang_'),
             CallbackQueryHandler(ask_name, pattern='^start_lead$'),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice),
         ],
         states={
             LANGUAGE_SELECT: [CallbackQueryHandler(set_language, pattern='^lang_')],
@@ -318,7 +336,10 @@ def main():
             CONTACT_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_lead)],
             CALCULATE_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, calculate_economy)],
         },
-        fallbacks=[CommandHandler("start", start)],
+        fallbacks=[
+            CommandHandler("start", start),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice)
+        ],
         allow_reentry=True
     )
 
