@@ -94,3 +94,30 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = (
             "💰 Скоро здесь можно будет рассчитать экономию."
             if language == "ru"
+            else "💰 Hier können Sie bald Ihre Ersparnis berechnen."
+        )
+    elif query.data == "contact":
+        text = (
+            "👨‍💼 Свяжитесь с консультантом: @nikolajnujkinfit"
+            if language == "ru"
+            else "👨‍💼 Kontaktieren Sie Ihren Berater: @nikolajnujkinfit"
+        )
+    else:
+        return
+
+    await query.message.reply_text(text)
+
+
+def main():
+    # Render Web Service требует открытый HTTP-порт.
+    Thread(target=start_web_server, daemon=True).start()
+
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(choose_language, pattern=r"^lang_(ru|de)$"))
+    app.add_handler(CallbackQueryHandler(handle_menu, pattern=r"^(contract|savings|contact)$"))
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
