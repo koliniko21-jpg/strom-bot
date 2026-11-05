@@ -89,3 +89,19 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await query.message.reply_text(text)
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(
+        CallbackQueryHandler(choose_language, pattern="^lang_")
+    )
+    app.add_handler(
+        CallbackQueryHandler(handle_menu, pattern="^(contract|savings|contact)$")
+    )
+
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
