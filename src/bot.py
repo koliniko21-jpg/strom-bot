@@ -14,7 +14,8 @@ from telegram.ext import (
 )
 
 # --- КОНФИГУРАЦИЯ ---
-BOT_TOKEN = "8870946479:AAGdkOfdswkkIdZQBrs4RAVgF8rmhvb99to"
+# Бот в первую очередь берет токен из настроек Render (Environment), а если его нет — из этой переменной
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8870946479:AAGdkOfdswkkIdZQBrs4RAVgF8rmhvb99to")
 CHAT_ID_CONSULTANT = 773441776
 TELEGRAM_USERNAME = "@nikolajnujkinfit"
 
@@ -315,7 +316,10 @@ async def show_contact_menu(update: Update, context):
 def main():
     threading.Thread(target=start_health_check_server, daemon=True).start()
 
-    application = Application.builder().token(BOT_TOKEN).build()
+    token = os.environ.get("BOT_TOKEN", BOT_TOKEN)
+    logger.info(f"Запуск бота с токеном: {token[:15]}...")
+
+    application = Application.builder().token(token).build()
 
     conv_handler = ConversationHandler(
         entry_points=[
