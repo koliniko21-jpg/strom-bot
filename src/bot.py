@@ -70,7 +70,7 @@ TEXTS = {
     'q_city': {'RU': "В каком городе/PLZ ты живёшь?", 'DE': "In welcher Stadt/PLZ wohnen Sie?"},
     'q_provider': {'RU': "Кто твой текущий поставщик энергии?", 'DE': "Wer ist Ihr aktueller Energieanbieter?"},
     'q_consumption': {'RU': "Сколько электроэнергии/газа ты потребляешь в год (в кВт⋅ч)? (Укажи число)", 'DE': "Wie hoch ist Ihr Strom-/Gasverbrauch pro Jahr (in kWh)?"},
-    'q_photo': {'RU': "Пришли фото контракта или PDF. Если не хочешь, просто нажми кнопку ниже.", 'DE': "Senden Sie ein Foto oder PDF Ihres Vertrags oder klicken Sie unten."},
+    'q_photo': {'RU': "Пришли фото контракта или PDF. Если не хочешь, просто нажми кнопку ниже.", 'DE': "Senden Sie ein Foto oder PDF Ihres Vertrags или нажмите кнопку ниже."},
     'q_contact': {'RU': "Укажи номер телефона или Telegram, чтобы я лично прислал результаты.", 'DE': "Geben Sie Ihre Telefonnummer oder Telegram an."},
     'skip_photo_button': {'RU': "Пропустить ➡️", 'DE': "Überspringen ➡️"},
     'lead_thanks': {
@@ -184,12 +184,11 @@ async def start_contract_check(update: Update, context):
 
 async def ask_name(update: Update, context):
     query = update.callback_query
+    lang = context.user_data.get('lang', 'RU')
     if query:
         await query.answer()
-        lang = context.user_data.get('lang', 'RU')
         await query.message.reply_text(get_text(lang, 'q_name'), parse_mode='Markdown')
     else:
-        lang = context.user_data.get('lang', 'RU')
         await update.message.reply_text(get_text(lang, 'q_name'), parse_mode='Markdown')
     return NAME
 
@@ -216,7 +215,7 @@ async def collect_consumption(update: Update, context):
     text = update.message.text.replace(',', '.')
 
     if not re.match(r'^\d+(\.\d+)?$', text):
-        await update.message.reply_text("❌ Укажите число в кВт⋅ч.", parse_mode='Markdown')
+        await update.message.reply_text("❌ Пожалуйста, введи только число (в кВт⋅ч).", parse_mode='Markdown')
         return CONSUMPTION
 
     context.user_data['lead_data']['Потребление'] = text
