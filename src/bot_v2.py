@@ -173,10 +173,11 @@ def openai_extract(file_bytes, mime_type):
         attachment = {"type": "input_file", "filename": "vertrag.pdf", "file_data": f"data:application/pdf;base64,{encoded}"}
     else:
         attachment = {"type": "input_image", "image_url": f"data:{mime_type};base64,{encoded}"}
+        instruction = (
     "Read this German electricity/gas contract or invoice. Return a short, plain-text report in Russian and German. ",
-        "Use Russian and German labels. Provide the report in both languages. ", 
-        "Extract ONLY information clearly visible: supplier (Anbieter), annual consumption (Jahresverbrauch kWh), "
-        "unit price (Arbeitspreis with unit), fixed fee (Grundpreis with period), and document type. "
+    "Use Russian and German labels. Provide the report in both languages. ", 
+    "Extract ONLY information clearly visible: supplier (Anbieter), annual consumption (Jahresverbrauch kWh), "
+    "unit price (Arbeitspreis with unit), fixed fee (Grundpreis with period), and document type. "
         "If a field is absent or unreadable, write 'nicht gefunden'. Respond in both Russian and German.", 
         "Do not invent values, do not provide offers, and do not reproduce personal identifiers, bank details or names. "
         "Limit response to 1100 characters."
